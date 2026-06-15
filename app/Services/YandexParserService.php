@@ -7,7 +7,7 @@ class YandexParserService
     public function parse(string $url): array
     {
         return [
-            'name' => 'Тестовая организация',
+            'title' => 'Тестовая организация',
             'rating' => 4.7,
             'ratings_count' => 228,
             'reviews_count' => 3,

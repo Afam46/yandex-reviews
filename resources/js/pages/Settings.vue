@@ -63,7 +63,7 @@
             >
                 <h2
                     class="
-                        text-2xl font-bold mb-8
+                        text-2xl font-bold mb-8 text-white
                     "
                 >
                     Информация об организации
@@ -83,7 +83,7 @@
                             Рейтинг
                         </div>
 
-                        <div class="text-3xl font-bold">
+                        <div class="text-3xl font-bold text-white">
                             {{ organization.rating ?? '-' }}
                         </div>
                     </div>
@@ -97,7 +97,7 @@
                             Оценок
                         </div>
 
-                        <div class="text-3xl font-bold">
+                        <div class="text-3xl font-bold text-white">
                             {{ organization.ratings_count }}
                         </div>
                     </div>
@@ -111,7 +111,7 @@
                             Отзывов
                         </div>
 
-                        <div class="text-3xl font-bold">
+                        <div class="text-3xl font-bold text-white">
                             {{ organization.reviews_count }}
                         </div>
                     </div>
@@ -124,7 +124,7 @@
             >
                 <h2
                     class="
-                        text-2xl font-bold mb-8
+                        text-2xl font-bold mb-8 text-white
                     "
                 >
                     Отзывы
@@ -144,7 +144,7 @@
                                 flex justify-between mb-3
                             "
                         >
-                            <div class="font-medium">
+                            <div class="font-medium text-white">
                                 {{ review.author }}
                             </div>
 
@@ -178,7 +178,7 @@
                         :disabled="page === 1"
                         class="
                             px-4 py-2 rounded-xl bg-slate-800
-                            disabled:opacity-50 cursor-pointer
+                            disabled:opacity-50 cursor-pointer text-white
                         "
                     >
                         ←
@@ -186,7 +186,7 @@
 
                     <div
                         class="
-                            px-4 py-2 rounded-xl bg-slate-800
+                            px-4 py-2 rounded-xl bg-slate-800 text-white
                         "
                     >
                         {{ page }}
@@ -197,7 +197,7 @@
                         :disabled="!hasMore"
                         class="
                             px-4 py-2 rounded-xl bg-slate-800
-                            disabled:opacity-50 cursor-pointer
+                            disabled:opacity-50 cursor-pointer text-white
                         "
                     >
                         →

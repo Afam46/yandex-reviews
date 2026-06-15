@@ -11,7 +11,7 @@ class OrganizationController extends Controller
 {
     public function store(Request $request)
     {
-        $data = $request->validate([
+        $validated = $request->validate([
             'url' => [
                 'required',
                 'url',
@@ -24,28 +24,28 @@ class OrganizationController extends Controller
                 'user_id' => Auth::id()
             ],
             [
-                'url' => $data['url']
+                'url' => $validated['url']
             ]
         );
 
         $parser = app(YandexParserService::class);
 
-        $data = $parser->parse($data['url']);
+        $parsed = $parser->parse($validated['url']);
 
         $organization->update([
-            'name' => $data['name'],
-            'rating' => $data['rating'],
-            'ratings_count' => $data['ratings_count'],
-            'reviews_count' => $data['reviews_count'],
+            'title' => $parsed['title'],
+            'rating' => $parsed['rating'],
+            'ratings_count' => $parsed['ratings_count'],
+            'reviews_count' => $parsed['reviews_count'],
         ]);
 
         $organization->reviews()->delete();
 
-        foreach ($data['reviews'] as $review) {
+        foreach ($parsed['reviews'] as $review) {
             $organization->reviews()->create($review);
         }
 
-        return $organization;
+        return $organization->load('reviews');
     }
 
     public function show()
