@@ -5,12 +5,12 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Organization;
 use Illuminate\Support\Facades\Auth;
-use App\Services\YandexParserService;
+use App\Services\YandexReviewParser;
 
 class OrganizationController extends Controller
 {
     public function store(Request $request)
-    {
+    {   
         $validated = $request->validate([
             'url' => [
                 'required',
@@ -28,9 +28,11 @@ class OrganizationController extends Controller
             ]
         );
 
-        $parser = app(YandexParserService::class);
+        $parser = app(YandexReviewParser::class);
 
-        $parsed = $parser->parse($validated['url']);
+        $parsed = $parser->parse(
+            $validated['url']
+        );
 
         $organization->update([
             'title' => $parsed['title'],
@@ -42,7 +44,12 @@ class OrganizationController extends Controller
         $organization->reviews()->delete();
 
         foreach ($parsed['reviews'] as $review) {
-            $organization->reviews()->create($review);
+            $organization->reviews()->create([
+                'author' => $review['author'],
+                'text' => $review['text'],
+                'rating' => $review['rating'],
+                'review_date' => $review['date'],
+            ]);
         }
 
         return $organization->load('reviews');

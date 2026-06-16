@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Organization;
 use Illuminate\Support\Facades\Auth;
+use App\Services\YandexReviewParser;
 
 class ReviewController extends Controller
 {
@@ -19,5 +20,15 @@ class ReviewController extends Controller
         }
 
         return $organization->reviews()->latest('review_date')->paginate(50);
+    }
+
+    public function parse(Request $request, YandexReviewParser $parser) {
+        $reviews = $parser->parse(
+            $request->url
+        );
+
+        return response()->json(
+            $reviews
+        );
     }
 }

@@ -16,5 +16,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/organization', [OrganizationController::class, 'show']);
 
     Route::get('/reviews', [ReviewController::class, 'index']);
+    Route::post('/reviews/parse',[ReviewController::class, 'parse']);
 
 });
