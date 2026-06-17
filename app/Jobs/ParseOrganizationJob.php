@@ -10,6 +10,7 @@ use App\Models\Organization;
 use App\Services\YandexReviewParser;
 use Illuminate\Support\Carbon;
 use App\Models\Review;
+use Illuminate\Support\Facades\Cache;
 
 class ParseOrganizationJob implements ShouldQueue
 {
@@ -26,8 +27,11 @@ class ParseOrganizationJob implements ShouldQueue
 
     public function handle(YandexReviewParser $parser)
     {
+        $this->organization->update([
+            'status' => 'parsing',
+        ]);
+        
         try {
-
             $parsed = $parser->parse($this->organization->url);
 
             if (empty($parsed['reviews']) && $parsed['reviews_count'] > 0) {
@@ -39,7 +43,6 @@ class ParseOrganizationJob implements ShouldQueue
                 'rating' => $parsed['rating'],
                 'ratings_count' => $parsed['ratings_count'],
                 'reviews_count' => $parsed['reviews_count'],
-                'status' => 'parsing',
             ]);
 
             $this->organization->reviews()->delete();
@@ -60,6 +63,13 @@ class ParseOrganizationJob implements ShouldQueue
 
             if ($rows) {
                 Review::insert($rows);
+
+                $pages = ceil(count($rows) / 50);
+
+                for ($i = 1; $i <= $pages; $i++) {
+                    
+                    Cache::forget("organization:{$this->organization->id}:reviews:{$i}");
+                }
             }
 
             $this->organization->update([

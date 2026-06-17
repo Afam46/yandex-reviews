@@ -17,17 +17,27 @@
                     v-for="item in organizations" :key="item.id"
                     class="p-4 rounded-xl mb-3 bg-slate-800 flex justify-between items-center"
                 >
-                    <div
-                        class="font-bold text-xl text-white"
-                        v-if="item.status == 'pending'"
-                    >
-                        {{ item.title ?? '⏳ Организация добавлена в очередь'}}
+                    
+                    <div class="font-bold text-xl text-white">
+
+                        <template v-if="item.status === 'pending'">
+                            ⏳ Организация добавлена в очередь
+                        </template>
+
+                        <template v-else-if="item.status === 'parsing'">
+                            🔄 Парсинг отзывов...
+                        </template>
+
+                        <template v-else-if="item.status === 'completed'">
+                            {{ item.title }}
+                        </template>
+
+                        <template v-else>
+                            ❌ Не удалось загрузить организацию
+                        </template>
+
                     </div>
-                    <div
-                        class="font-bold text-xl text-white" v-else
-                    >
-                        {{ item.title ?? '❌ Не удалось загрузить организацию'}}
-                    </div>
+
                     <div class="flex items-center">
                         <a
                             class="
@@ -117,17 +127,28 @@
             </form>
 
             <div v-if="selectedOrganization" class="mt-4">
+
                 <div
-                    v-if="selectedOrganization.status === 'pending'" class="text-yellow-400"
+                    v-if="selectedOrganization.status === 'pending'"
+                    class="text-yellow-400"
                 >
                     ⏳ Организация добавлена в очередь
                 </div>
 
                 <div
-                    v-else-if="selectedOrganization.status === 'failed'" class="text-red-400"
+                    v-else-if="selectedOrganization.status === 'parsing'"
+                    class="text-blue-400"
+                >
+                    🔄 Парсинг отзывов...
+                </div>
+
+                <div
+                    v-else-if="selectedOrganization.status === 'failed'"
+                    class="text-red-400"
                 >
                     ❌ Не удалось загрузить организацию
                 </div>
+
             </div>
 
             <div

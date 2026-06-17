@@ -1,7 +1,8 @@
 const { chromium } = require('playwright');
 
 const MAX_REVIEWS = 600;
-const MAX_TIME_MS = 3 * 60 * 1000;
+const MAX_TIME_MS = 45000;
+const MAX_PAGES = 40;
 
 (async () => {
     const url = process.argv[2];
@@ -14,7 +15,9 @@ const MAX_TIME_MS = 3 * 60 * 1000;
     let browser;
 
     try {
-        browser = await chromium.launch({ headless: true });
+        browser = await chromium.launch({
+            headless: true
+        });
 
         const page = await browser.newPage();
 
@@ -67,32 +70,81 @@ const MAX_TIME_MS = 3 * 60 * 1000;
                         date: review.updatedTime ?? null
                     });
                 }
+
             } catch {}
         });
 
-        await page.goto(url, { waitUntil: 'domcontentloaded' });
+        await page.goto(url, {
+            waitUntil: 'domcontentloaded',
+            timeout: 30000
+        });
 
-        await page.waitForTimeout(3000);
+        await page.waitForTimeout(1500);
 
         const title = await page.locator('h1').first().textContent().catch(() => null);
 
-        const ratingText = await page.locator(
-            '.business-rating-badge-view__rating-text'
-        ).first().textContent().catch(() => null);
+        if (!title || title.includes('Ошибка 404. Нет такой страницы')) {
+            console.error('ORGANIZATION NOT FOUND');
+            process.exit(1);
+        }
 
-        const reviewsCounterText = await page.locator(
-            '[aria-label^="Отзывы"] .tabs-select-view__counter'
-        ).first().textContent().catch(() => '0');
+        const ratingText = await page.locator(
+                    '.business-rating-badge-view__rating-text'
+                ).first().textContent().catch(() => null);
 
         const ratingsCounterText = await page.locator(
-            '.business-rating-amount-view._summary'
-        ).first().textContent().catch(() => '0');
+                    '.business-rating-amount-view._summary'
+                ).first().textContent().catch(() => '0');
 
         const reviewsTab = page.locator('[aria-label^="Отзывы"]');
 
+        let reviewsCount = 0;
+
         if (await reviewsTab.count()) {
+
+            const text = await reviewsTab.textContent();
+
+            reviewsCount = Number(text?.replace(/\D/g, '')) || 0;
+
             await reviewsTab.click();
-            await page.waitForTimeout(3000);
+
+            await page.waitForTimeout(1000);
+
+            try {
+
+                const pollResponse = await page.waitForResponse(
+                    response => response.url().includes('fetchReviewPollData'),{ timeout: 3000 }
+                );
+
+                const poll = await pollResponse.json();
+
+                const pollCount = poll?.data?.reviewsCount;
+
+                if (typeof pollCount === 'number') {
+                    reviewsCount = pollCount;
+                }
+
+            } catch {}
+        }
+
+        if (reviewsCount === 0) {
+
+            const result = { 
+                title,
+
+                rating:
+                    ratingText ? Number(ratingText.replace(',','.')): null,
+
+                reviews_count: 0,
+
+                ratings_count: Number(ratingsCounterText.replace(/\D/g,'')) || 0,
+
+                reviews: []
+            };
+
+            process.stdout.write(JSON.stringify(result));
+
+            return;
         }
 
         const container = page.locator('.scroll__container').first();
@@ -114,21 +166,28 @@ const MAX_TIME_MS = 3 * 60 * 1000;
                     break;
                 }
 
+                if (loadedPages.size >= MAX_PAGES) {
+                    break;
+                }
+
                 if (totalPages !== null && loadedPages.size >= totalPages) {
                     break;
                 }
 
-                await container.evaluate(el => {
-                    el.scrollTop = el.scrollHeight;
-                });
+                await container.evaluate(
+                    el => {
+                        el.scrollTop = el.scrollHeight;
+                    }
+                );
 
-                await page.waitForTimeout(1500);
+                await page.waitForTimeout(500);
 
                 if (reviews.length === previousCount) {
                     idleIterations++;
                 } else {
-                    idleIterations = 0;
                     previousCount = reviews.length;
+
+                    idleIterations = 0;
                 }
 
                 if (idleIterations >= 5) {
@@ -140,11 +199,11 @@ const MAX_TIME_MS = 3 * 60 * 1000;
         const result = {
             title,
 
-            rating: ratingText ? Number(ratingText.replace( ',', '.')) : null,
+            rating: ratingText ? Number(ratingText.replace(',','.')): null,
 
-            reviews_count: Number( reviewsCounterText.replace(/\D/g, '')) || 0,
+            reviews_count: reviewsCount,
 
-            ratings_count: Number(ratingsCounterText.replace(/\D/g, '')) || 0,
+            ratings_count: Number(ratingsCounterText.replace(/\D/g,'')) || 0,
 
             reviews
         };
@@ -152,7 +211,7 @@ const MAX_TIME_MS = 3 * 60 * 1000;
         process.stdout.write(JSON.stringify(result));
 
     } catch (e) {
-        console.error(e.message);
+        console.error(e.stack);
         process.exit(1);
     } finally {
         if (browser) {
