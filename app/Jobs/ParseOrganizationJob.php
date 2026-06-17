@@ -30,6 +30,10 @@ class ParseOrganizationJob implements ShouldQueue
 
             $parsed = $parser->parse($this->organization->url);
 
+            if (empty($parsed['reviews']) && $parsed['reviews_count'] > 0) {
+                throw new \Exception('Reviews were not parsed');
+            }
+
             $this->organization->update([
                 'title' => $parsed['title'],
                 'rating' => $parsed['rating'],
