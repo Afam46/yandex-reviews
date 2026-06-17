@@ -1,5 +1,8 @@
 const { chromium } = require('playwright');
 
+const MAX_REVIEWS = 600;
+const MAX_TIME_MS = 3 * 60 * 1000;
+
 (async () => {
     const url = process.argv[2];
 
@@ -8,160 +11,228 @@ const { chromium } = require('playwright');
         process.exit(1);
     }
 
-    const browser = await chromium.launch({
-        headless: true
-    });
+    let browser;
 
-    const page = await browser.newPage();
+    try {
+        browser = await chromium.launch({
+            headless: true
+        });
 
-    const loadedPages = new Set();
-    const reviews = [];
+        const page = await browser.newPage();
 
-    let totalPages = null;
+        const loadedPages = new Set();
+        const reviews = [];
 
-    page.on('response', async response => {
-        const responseUrl = response.url();
+        let totalPages = null;
 
-        if (!responseUrl.includes('fetchReviews')) {
-            return;
-        }
+        page.on('response', async response => {
+            const responseUrl = response.url();
 
-        try {
-            const json = await response.json();
-
-            const params = json?.data?.params;
-
-            if (!params) {
+            if (!responseUrl.includes('fetchReviews')) {
                 return;
             }
 
-            const pageNumber = params.page;
+            try {
+                const json = await response.json();
 
-            if (loadedPages.has(pageNumber)) {
-                return;
-            }
+                const params = json?.data?.params;
 
-            loadedPages.add(pageNumber);
+                if (!params) {
+                    return;
+                }
 
-            totalPages = params.totalPages;
+                const pageNumber = params.page;
 
-            for (const review of json.data.reviews ?? []) {
-                reviews.push({
-                    author:
-                        review.author?.name ?? '',
-                    rating:
-                        review.rating ?? null,
-                    text:
-                        review.text ?? '',
-                    date:
-                        review.updatedTime ?? null
-                });
-            }
-        } catch {}
-    });
+                if (loadedPages.has(pageNumber)) {
+                    return;
+                }
 
-    await page.goto(url, {
-        waitUntil: 'domcontentloaded'
-    });
+                loadedPages.add(pageNumber);
 
-    await page.waitForTimeout(3000);
+                totalPages = params.totalPages;
 
-    const title =
-        await page
-            .locator('h1')
-            .first()
-            .textContent()
-            .catch(() => null);
+                for (const review of json.data.reviews ?? []) {
 
-    const ratingText =
-        await page
-            .locator(
-                '.business-rating-badge-view__rating-text'
-            )
-            .first()
-            .textContent()
-            .catch(() => null);
+                    if (reviews.length >= MAX_REVIEWS) {
+                        break;
+                    }
 
-    const reviewsCounterText =
-        await page
-            .locator(
-                '[aria-label^="Отзывы"] .tabs-select-view__counter'
-            )
-            .first()
-            .textContent()
-            .catch(() => '0');
+                    reviews.push({
+                        reviewId:
+                            review.reviewId ?? null,
 
-    const reviewsTab =
-        page.locator(
-            '[aria-label^="Отзывы"]'
-        );
+                        author:
+                            review.author?.name ?? '',
 
-    if (await reviewsTab.count()) {
-        await reviewsTab.click();
-    }
+                        rating:
+                            review.rating ?? null,
 
-    await page.locator('.business-reviews-card-view__review')
+                        text:
+                            review.text ?? '',
 
-    await page.waitForTimeout(3000);
+                        date:
+                            review.updatedTime ?? null
+                    });
+                }
+            } catch {}
+        });
 
-    const container =
-        page
-            .locator('.scroll__container')
-            .first();
+        await page.goto(url, {
+            waitUntil: 'domcontentloaded'
+        });
 
-    if (await container.count()) {
-        while (
-            totalPages === null ||
-            loadedPages.size < totalPages
-        ) {
-            await container.evaluate(el => {
-                el.scrollTop =
-                    el.scrollHeight;
-            });
+        await page.waitForTimeout(3000);
 
-            await page.waitForTimeout(
-                1500
+        const title =
+            await page
+                .locator('h1')
+                .first()
+                .textContent()
+                .catch(() => null);
+
+        const ratingText =
+            await page
+                .locator(
+                    '.business-rating-badge-view__rating-text'
+                )
+                .first()
+                .textContent()
+                .catch(() => null);
+
+        const reviewsCounterText =
+            await page
+                .locator(
+                    '[aria-label^="Отзывы"] .tabs-select-view__counter'
+                )
+                .first()
+                .textContent()
+                .catch(() => '0');
+
+        const ratingsCounterText =
+            await page
+                .locator(
+                    '.business-rating-amount-view._summary'
+                )
+                .first()
+                .textContent()
+                .catch(() => '0');
+
+        const reviewsTab =
+            page.locator(
+                '[aria-label^="Отзывы"]'
             );
+
+        if (await reviewsTab.count()) {
+            await reviewsTab.click();
+            await page.waitForTimeout(3000);
+        }
+
+        const container =
+            page
+                .locator('.scroll__container')
+                .first();
+
+        const startedAt = Date.now();
+
+        let idleIterations = 0;
+        let previousCount = 0;
+
+        if (await container.count()) {
+
+            while (true) {
+
+                if (
+                    Date.now() - startedAt >
+                    MAX_TIME_MS
+                ) {
+                    break;
+                }
+
+                if (
+                    reviews.length >=
+                    MAX_REVIEWS
+                ) {
+                    break;
+                }
+
+                if (
+                    totalPages !== null &&
+                    loadedPages.size >= totalPages
+                ) {
+                    break;
+                }
+
+                await container.evaluate(el => {
+                    el.scrollTop =
+                        el.scrollHeight;
+                });
+
+                await page.waitForTimeout(
+                    1500
+                );
+
+                if (
+                    reviews.length ===
+                    previousCount
+                ) {
+                    idleIterations++;
+                } else {
+                    idleIterations = 0;
+                    previousCount =
+                        reviews.length;
+                }
+
+                /*
+                 * Несколько скроллов подряд
+                 * ничего не дали
+                 */
+                if (idleIterations >= 5) {
+                    break;
+                }
+            }
+        }
+
+        const result = {
+            title,
+
+            rating:
+                ratingText
+                    ? Number(
+                          ratingText.replace(
+                              ',',
+                              '.'
+                          )
+                      )
+                    : null,
+
+            reviews_count:
+                Number(
+                    reviewsCounterText.replace(
+                        /\D/g,
+                        ''
+                    )
+                ) || 0,
+
+            ratings_count:
+                Number(
+                    ratingsCounterText.replace(
+                        /\D/g,
+                        ''
+                    )
+                ) || 0,
+
+            reviews
+        };
+
+        process.stdout.write(
+            JSON.stringify(result)
+        );
+    } catch (e) {
+        console.error(e.message);
+        process.exit(1);
+    } finally {
+        if (browser) {
+            await browser.close();
         }
     }
-
-    await browser.close();
-
-    const result = {
-        title,
-
-        rating:
-            ratingText
-                ? Number(
-                      ratingText.replace(
-                          ',',
-                          '.'
-                      )
-                  )
-                : null,
-
-        reviews_count:
-            Number(
-                reviewsCounterText.replace(
-                    /\D/g,
-                    ''
-                )
-            ) || 0,
-
-        ratings_count:
-            Number(
-                reviewsCounterText.replace(
-                    /\D/g,
-                    ''
-                )
-            ) || 0,
-
-        reviews
-    };
-
-    process.stdout.write(
-        JSON.stringify(result)
-    );
-
-    process.exit(0);
 })();

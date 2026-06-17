@@ -6,36 +6,23 @@ class YandexReviewParser
 {
     public function parse(string $url): array
     {
-        $script = base_path(
-            'app/scripts/yandex-reviews.cjs'
-        );
+        $script = base_path('app/scripts/yandex-reviews.cjs');
 
-        $command =
-            'node '
-            . escapeshellarg($script)
-            . ' '
-            . escapeshellarg($url)
-            . ' 2>&1';
+        $command ='node ' . escapeshellarg($script)  . ' ' . escapeshellarg($url) . ' 2>&1';
 
         $output = shell_exec($command);
 
         if (!$output) {
             throw new \Exception(
-                'Parser failed'
+                'Parser returned empty response'
             );
         }
 
-        $json = json_decode(
-            $output,
-            true
-        );
+        $json = json_decode($output, true);
 
-        if (
-            json_last_error() !==
-            JSON_ERROR_NONE
-        ) {
+        if (json_last_error() !== JSON_ERROR_NONE) {
             throw new \Exception(
-                $output
+                'Parser output: ' . $output
             );
         }
 

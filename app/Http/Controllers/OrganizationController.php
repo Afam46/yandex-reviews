@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Organization;
 use Illuminate\Support\Facades\Auth;
-use App\Services\YandexReviewParser;
+use App\Jobs\ParseOrganizationJob;
 
 class OrganizationController extends Controller
 {
@@ -14,49 +14,33 @@ class OrganizationController extends Controller
         $validated = $request->validate([
             'url' => [
                 'required',
-                'url',
+                'string',
                 'regex:/yandex/'
             ]
         ]);
 
-        $organization = Organization::updateOrCreate(
-            [
-                'user_id' => Auth::id()
-            ],
-            [
-                'url' => $validated['url']
-            ]
-        );
-
-        $parser = app(YandexReviewParser::class);
-
-        $parsed = $parser->parse(
-            $validated['url']
-        );
-
-        $organization->update([
-            'title' => $parsed['title'],
-            'rating' => $parsed['rating'],
-            'ratings_count' => $parsed['ratings_count'],
-            'reviews_count' => $parsed['reviews_count'],
+        $organization = Organization::create([
+            'user_id' => Auth::id(),
+            'url' => $validated['url'],
         ]);
 
-        $organization->reviews()->delete();
+        ParseOrganizationJob::dispatch($organization);
 
-        foreach ($parsed['reviews'] as $review) {
-            $organization->reviews()->create([
-                'author' => $review['author'],
-                'text' => $review['text'],
-                'rating' => $review['rating'],
-                'review_date' => $review['date'],
-            ]);
-        }
-
-        return $organization->load('reviews');
+        return response()->json([
+            'message' => 'Parsing started',
+            'organization' => $organization
+        ]);
     }
 
     public function show()
     {
-        return Organization::with('reviews')->where('user_id', Auth::id())->first();
+        return Organization::where('user_id', Auth::id())->latest()->get();
+    }
+
+    public function delete(int $id)
+    {
+        $organization = Organization::where('id', $id)->where('user_id', Auth::id())->firstOrFail();
+
+        $organization->delete();
     }
 }

@@ -68,22 +68,14 @@
                     :disabled="loading"
                     class="
                         w-full bg-blue-600 hover:bg-blue-700
-                        transition rounded-xl py-3 font-medium
+                        transition rounded-xl py-3 font-medium mb-5
                         disabled:opacity-50 cursor-pointer text-white
                     "
                 >
                     {{ loading ? 'Вход...' : 'Войти' }}
                 </button>
 
-                <div
-                    v-if="error"
-                    class="
-                        text-red-400 text-center
-                    "
-                >
-                    {{ error }}
-                </div>
-
+                <TransitionComponent :errorText="error"/>
             </form>
         </div>
     </div>
@@ -94,6 +86,7 @@ import axios from 'axios'
 import { reactive, ref } from 'vue'
 import router from '../router/index'
 import { useAuthStore } from '../store/auth'
+import TransitionComponent from '../components/TransitionComponent.vue'
 
 const loading = ref(false)
 const error = ref('')
@@ -123,7 +116,12 @@ const login = async () => {
     }catch(e){
 
         if (e.response?.status === 422) {
-            error.value = 'Неверный логин или пароль!'
+            
+            error.value = 'Неверная почта или пароль!'
+
+            setTimeout(() => {
+                error.value = ''
+            }, 2000)
         }
 
     }finally{

@@ -26,6 +26,8 @@ return new class extends Migration
 
             $table->integer('ratings_count')->default(0);
 
+            $table->string('status')->default('pending');
+
             $table->timestamps();
         });
     }

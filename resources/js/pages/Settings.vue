@@ -6,10 +6,69 @@
     >
         <div
             class="
-                max-w-4xl mx-auto bg-slate-900
+                max-w-6xl mx-auto bg-slate-900
                 border border-slate-800 rounded-3xl p-8
             "
         >
+            <div
+                v-if="organizations.length" class="mb-8"
+            >
+                <div
+                    v-for="item in organizations" :key="item.id"
+                    class="p-4 rounded-xl mb-3 bg-slate-800 flex justify-between items-center"
+                >
+                    <div
+                        class="font-bold text-xl text-white"
+                        v-if="item.status == 'pending'"
+                    >
+                        {{ item.title ?? '⏳ Организация добавлена в очередь'}}
+                    </div>
+                    <div
+                        class="font-bold text-xl text-white" v-else
+                    >
+                        {{ item.title ?? '❌ Не удалось загрузить организацию'}}
+                    </div>
+                    <div class="flex items-center">
+                        <a
+                            class="
+                                bg-yellow-600 hover:bg-yellow-700 transition
+                                rounded-xl px-4 py-2 disabled:opacity-50
+                                cursor-pointer text-white mr-3 duration-300
+                            "
+                            type="button"
+                            target="_blank"
+                            :href="item.url"
+                        >
+                            На Yandex
+                        </a> 
+
+                        <button
+                            class="
+                                bg-blue-600 hover:bg-blue-700 transition
+                                rounded-xl px-4 py-2 disabled:opacity-50
+                                cursor-pointer text-white mr-3 duration-300
+                            "
+                            type="button"
+                            @click.prevent="selectedOrganization = item; page = 1; loadReviews();"
+                        >
+                            Открыть
+                        </button> 
+
+                        <button
+                            class="
+                                bg-red-600 hover:bg-red-700 transition
+                                rounded-xl px-4 py-2 disabled:opacity-50
+                                cursor-pointer text-white duration-300
+                            "
+                            type="button"
+                            @click.prevent="deleteOrganization(item.id)"
+                        >
+                            Удалить
+                        </button>               
+                    </div>
+                </div>
+            </div>
+
             <h1
                 class="
                     text-3xl font-bold mb-8 text-white
@@ -22,43 +81,57 @@
                 class="space-y-5"
                 @submit.prevent="saveOrganization"
             >
-                <div>
+                <div class="relative">
 
                     <label
                         class="
                             block text-white mb-2
                         "
                     >
-                        Ссылка на организацию в Яндекс.Картах
+                        Ссылка на организацию в Яндекс картах
                     </label>
 
                     <input
                         v-model="url"
+                        @input="urlError = ''"
                         type="text"
                         placeholder="https://yandex.ru/maps/org/..."
-                        class=" w-full bg-slate-800 border border-slate-700
-                            rounded-xl px-4 py-3 focus:outline-none
-                            focus:border-blue-500 text-white
-                        "
-                    >
-
+                        :class="[
+                            'w-full rounded-xl px-4 py-3 focus:outline-none text-white bg-slate-800 border',
+                            urlError ?
+                            'border-red-500 focus:border-red-500' :
+                            'border-slate-700 focus:border-blue-500'
+                        ]"
+                    />
                 </div>
 
                 <button
-                    :disabled="loading"
                     class="
                         bg-blue-600 hover:bg-blue-700 transition
                         rounded-xl px-6 py-3 disabled:opacity-50
-                        cursor-pointer text-white
+                        cursor-pointer text-white duration-300
                     "
                 >
-                    {{ loading ? 'Подключаем...' : 'Подключить' }}
+                    Подключить
                 </button>
-
             </form>
 
+            <div v-if="selectedOrganization" class="mt-4">
+                <div
+                    v-if="selectedOrganization.status === 'pending'" class="text-yellow-400"
+                >
+                    ⏳ Организация добавлена в очередь
+                </div>
+
+                <div
+                    v-else-if="selectedOrganization.status === 'failed'" class="text-red-400"
+                >
+                    ❌ Не удалось загрузить организацию
+                </div>
+            </div>
+
             <div
-                v-if="organization"
+                v-if="selectedOrganization"
                 class="mt-12"
             >
                 <h2
@@ -66,7 +139,7 @@
                         text-2xl font-bold mb-8 text-white
                     "
                 >
-                    Информация об организации
+                    Информация об организации "{{ selectedOrganization.title }}"
                 </h2>
 
                 <div
@@ -84,7 +157,7 @@
                         </div>
 
                         <div class="text-3xl font-bold text-white">
-                            {{ organization.rating ?? '-' }}
+                            {{ selectedOrganization.rating ?? '-' }}
                         </div>
                     </div>
 
@@ -98,7 +171,7 @@
                         </div>
 
                         <div class="text-3xl font-bold text-white">
-                            {{ organization.ratings_count }}
+                            {{ selectedOrganization.ratings_count }}
                         </div>
                     </div>
 
@@ -112,7 +185,7 @@
                         </div>
 
                         <div class="text-3xl font-bold text-white">
-                            {{ organization.reviews_count }}
+                            {{ selectedOrganization.reviews_count }}
                         </div>
                     </div>
                 </div>
@@ -130,7 +203,7 @@
                     Отзывы
                 </h2>
 
-                <div class="space-y-4">
+                <div class="grid md:grid-cols-2 gap-4">
 
                     <div
                         v-for="review in reviews"
@@ -153,7 +226,7 @@
                             </div>
                         </div>
 
-                        <div class="text-slate-300">
+                        <div class="text-slate-300 max-h-24 overflow-auto">
                             {{ review.text }}
                         </div>
 
@@ -208,17 +281,19 @@
 
         </div>
     </div>
+    <TransitionComponent :errorText="urlError"/>
 </template>
 
 <script setup>
 import axios from 'axios'
 import { ref, onMounted } from 'vue'
+import TransitionComponent from '../components/TransitionComponent.vue'
 
 const url = ref('')
+const urlError = ref('')
 
-const loading = ref(false)
-
-const organization = ref(null)
+const organizations = ref([])
+const selectedOrganization = ref(null)
 
 const reviews = ref([])
 
@@ -227,56 +302,89 @@ const page = ref(1)
 const hasMore = ref(false)
 
 const loadOrganization = async () => {
+    const res = await axios.get('/api/organization')
 
-    try{
+    organizations.value = res.data
 
-        const res = await axios.get('/api/organization')
+    if (selectedOrganization.value) {
+        const fresh = organizations.value.find(o => o.id === selectedOrganization.value.id)
 
-        organization.value = res.data
+        if (fresh) {
+            selectedOrganization.value = fresh
+        }
+    }
+    else if (organizations.value.length) {
+        selectedOrganization.value = organizations.value[0]
+    }
 
+    if (selectedOrganization.value?.status === 'completed') {
         await loadReviews()
-
-    }catch(e){
-
-        console.log(e)
     }
 }
 
 const loadReviews = async () => {
-
-    try{
-
-        const res = await axios.get(`/api/reviews?page=${page.value}`)
-
-        reviews.value = res.data.data
-
-        hasMore.value = res.data.current_page < res.data.last_page
-
-    }catch(e){
-
-        console.log(e)
+    if (!selectedOrganization.value || selectedOrganization.value.status !== 'completed') {
+        reviews.value = []
+        hasMore.value = false
+        return
     }
+
+    const res = await axios.get(
+        `/api/organizations/${selectedOrganization.value.id}/reviews?page=${page.value}`
+    )
+
+    reviews.value = res.data.data
+
+    hasMore.value = res.data.current_page < res.data.last_page
 }
 
 const saveOrganization = async () => {
 
-    loading.value = true
+    try {
+        const res = await axios.post('/api/organization',{url: url.value})
 
-    try{
+        const newOrganization = res.data.organization
 
-        await axios.post('/api/organization', {
-            url: url.value
-        })
+        url.value = ''
 
         await loadOrganization()
 
-    }catch(e){
+        selectedOrganization.value = organizations.value.find(o => o.id === newOrganization.id) ?? null
 
-        console.log(e)
+        const parsingOrganizationId = newOrganization.id
 
-    }finally{
+        reviews.value = []
+        page.value = 1
 
-        loading.value = false
+        const timer = setInterval(async () => {
+            await loadOrganization()
+
+            const parsingOrg = organizations.value.find(o => o.id === parsingOrganizationId)
+
+            if (!parsingOrg) {
+                clearInterval(timer)
+                return
+            }
+
+            if (parsingOrg.status === 'completed' || parsingOrg.status === 'failed') {
+                clearInterval(timer)
+
+                if (selectedOrganization.value?.id === parsingOrganizationId) {
+                    await loadReviews()
+                }
+            }
+        }, 3000)
+
+    } catch (e) {
+        if (e.response?.status === 422){
+            urlError.value = e.response.data.errors.url?.[0] ?? 'Неверная ссылка'
+        }else{
+            urlError.value = 'Произошла ошибка при подключении организации'
+        }
+
+        setTimeout(() => {
+                urlError.value = ''
+        }, 2000)
     }
 }
 
@@ -285,6 +393,18 @@ const changePage = async (newPage) => {
     page.value = newPage
 
     await loadReviews()
+}
+
+const deleteOrganization = async (id) => {
+    await axios.post(`/api/organization/${id}/delete`)
+
+    if (selectedOrganization.value?.id === id) {
+        selectedOrganization.value = null
+        reviews.value = []
+        page.value = 1
+    }
+
+    await loadOrganization()
 }
 
 onMounted(() => {

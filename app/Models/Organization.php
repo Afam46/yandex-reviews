@@ -13,6 +13,7 @@ class Organization extends Model
         'rating',
         'reviews_count',
         'ratings_count',
+        'status',
     ];
 
     public function reviews()
