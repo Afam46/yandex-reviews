@@ -226,7 +226,7 @@
                             </div>
                         </div>
 
-                        <div class="text-slate-300 max-h-24 overflow-auto">
+                        <div class="text-slate-300 min-h-18 max-h-18 overflow-auto">
                             {{ review.text }}
                         </div>
 
@@ -262,7 +262,7 @@
                             px-4 py-2 rounded-xl bg-slate-800 text-white
                         "
                     >
-                        {{ page }}
+                        {{ page }} из {{ lastPage }}
                     </div>
 
                     <button
@@ -298,6 +298,7 @@ const selectedOrganization = ref(null)
 const reviews = ref([])
 
 const page = ref(1)
+const lastPage = ref(1)
 
 const hasMore = ref(false)
 
@@ -334,6 +335,7 @@ const loadReviews = async () => {
     )
 
     reviews.value = res.data.data
+    lastPage.value = res.data.last_page
 
     hasMore.value = res.data.current_page < res.data.last_page
 }
