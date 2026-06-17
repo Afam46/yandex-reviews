@@ -18,6 +18,7 @@ class ParseOrganizationJob implements ShouldQueue
     use SerializesModels;
 
     public $timeout = 180;
+    public $tries = 1;
 
     public function __construct(
         public Organization $organization
