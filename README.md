@@ -1,58 +1,290 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Yandex Reviews Parser
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Парсер отзывов с организаций Яндекс карт
 
-## About Laravel
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Demo
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+[Yandex Reviews](http://155.212.147.12:8093/)
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+Email:
+test@test.com<br>
 
-## Learning Laravel
+Password:
+12345678
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+## Примечание
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+Демо размещено на VPS с ограниченными ресурсами (1 vCPU, 2 GB RAM)
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+Скорость парсинга зависит от количества отзывов и производительности сервера<br>
+На локальной машине парсинг выполняется заметно быстрее
 
-## Agentic Development
+## Стек
 
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+| Категория | Технологии |
+|------------|------------|
+| Frontend | Vue 3, Vue Router, Axios, TailwindCSS, Pinia |
+| Backend | Laravel, Sanctum, MySQL, Redis, Queue, PHPUnit |
+| Парсинг | Node.js, Playwright, Chromium Headless |
 
-```bash
-composer require laravel/boost --dev
+---
 
-php artisan boost:install
+# Возможности
+
+## Работа с организациями
+
+- добавление ссылки на организацию Яндекс карт
+- валидация ссылки
+- сохранение организации в БД
+- удаление организации
+
+После добавления организации запускается polling каждые 3 секунды.
+Интерфейс обновляет статус организации до completed или failed без перезагрузки страницы
+
+## Работа с отзывами
+
+Для каждой организации отображаются:
+
+- средний рейтинг
+- количество отзывов
+- количество оценок
+- последние отзывы (лимит 600)
+
+Каждый отзыв содержит:
+
+- автора
+- дату
+- оценку
+- текст
+
+Отзывы хранятся в MySQL, а результаты пагинации кэшируются в Redis
+
+---
+
+# Архитектура
+
+### Services
+
+Вся логика взаимодействия с парсером вынесена в сервис (App\Services\YandexReviewParser)
+
+Сервис запускает Node.js-скрипт и получает данные в JSON
+
+### Jobs
+
+Парсинг запускается асинхронно (ParseOrganizationJob)
+
+Использование очередей позволяет:
+
+- не блокировать HTTP-запрос
+- избежать таймаутов
+- выполнять тяжёлый парсинг в фоне
+
+Queue + Redis + Supervisor
+
+### БД
+
+```
+organizations
+- user_id
+- url
+- title
+- rating
+- ratings_count
+- reviews_count
+- status
+
+reviews
+- organization_id
+- author
+- text
+- rating
+- review_date
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+---
 
-## Contributing
+# Подход к парсингу
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+Используется Playwright + Headless Chromium
 
-## Code of Conduct
+Алгоритм:
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+1. открывается карточка организации
+2. переход на вкладку отзывов
+3. отслеживаются внутренние запросы fetchReviews
+4. отзывы собираются из JSON-ответов
+5. выполняется прокрутка контейнера отзывов
+6. процесс завершается, если:
 
-## Security Vulnerabilities
+   - получены все страницы
+   - собрано 600 отзывов
+   - превышен лимит времени
+   - новые отзывы перестали приходить
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+Из ответа дополнительно извлекаются:
 
-## License
+- рейтинг
+- количество отзывов
+- количество оценок
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+## Статусы парсинга
+
+Организация может находиться в одном из состояний:
+
+- pending — создана запись в БД
+- parsing — выполняется парсинг
+- completed — парсинг успешно завершён
+- failed — произошла ошибка
+
+# Защита от ошибок
+
+Обрабатываются следующие сценарии:
+
+- некорректная ссылка
+- организация не найдена
+- пустой ответ парсера
+- превышение времени парсинга
+- ошибки запуска Chromium
+- частичная недоступность данных Яндекс Карт
+
+При ошибке организация получает статус failed
+
+---
+
+# Почему выбран именно такой подход
+
+Отзывы парсятся один раз и сохраняются в БД
+
+Постраничная навигация работает по локально сохранённым данным и частично кэшируется в Redis
+
+Такой подход позволяет:
+
+- избежать повторного запуска тяжёлого парсинга
+- не обращаться к Яндекс Картам при каждой смене страницы
+- снизить нагрузку на внешний источник
+- обеспечить быстрый отклик интерфейса
+
+---
+
+# Тестирование
+
+Покрыты feature-тестами:
+
+- создание организации
+- получение организаций
+- удаление организаций
+- получение отзывов
+- ограничение доступа к чужим организациям
+- успешный сценарий ParseOrganizationJob
+- сценарий ошибки ParseOrganizationJob
+
+```
+php artisan test
+```
+
+---
+
+# Запуск проекта
+
+```
+## Требования
+
+- PHP 8.4+
+- Node.js 22+
+- MySQL
+- Redis
+
+git clone https://github.com/Afam46/yandex-reviews.git
+
+cd yandex-reviews
+
+```
+## Backend
+
+```
+composer install
+
+cp .env.example .env
+
+# Настройка env
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=yandex_reviews
+DB_USERNAME=root
+DB_PASSWORD=
+
+QUEUE_CONNECTION=redis
+CACHE_STORE=redis
+REDIS_CLIENT=predis
+
+php artisan key:generate
+
+php artisan migrate
+
+php artisan db:seed --class=UserSeeder
+
+php artisan serve
+
+```
+## Frontend
+
+```
+npm install
+
+# Установка Chromium
+npx playwright install chromium
+
+npm run dev
+
+```
+## Убедитесь, что Redis запущен
+```
+# Проверка
+redis-cli ping  # должен вернуть PONG
+
+# Если нет:
+
+# Установка (Ubuntu)
+sudo apt install redis-server
+
+# Запуск
+sudo systemctl start redis
+sudo systemctl enable redis
+
+```
+## Queue Worker
+
+```
+php artisan queue:work --timeout=180
+
+```
+
+---
+
+## Диаграмма процесса
+
+```
+User
+ ↓
+POST /organization
+ ↓
+ParseOrganizationJob
+ ↓
+Playwright
+ ↓
+reviews table
+ ↓
+status = completed
+ ↓
+Polling → UI update
+```
+
+## Что бы улучшил при наличии большего времени
+
+- WebSocket-обновление статусов вместо polling
+- Laravel Horizon для мониторинга очередей
+- повторные попытки парсинга для нестабильных карточек
+- кэширование популярных организаций
+- расширенное покрытие тестами
