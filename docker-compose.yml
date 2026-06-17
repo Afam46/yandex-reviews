@@ -1,12 +1,12 @@
-version: '3.8'
-
 services:
   app:
     build:
       context: .
-      dockerfile: ./docker/php/Dockerfile
+      dockerfile: docker/php/Dockerfile
     container_name: yandex-reviews-app
     working_dir: /var/www
+    env_file:
+    - .env.docker
     volumes:
       - .:/var/www
     depends_on:
