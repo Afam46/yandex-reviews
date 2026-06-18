@@ -1,7 +1,7 @@
 const { chromium } = require('playwright');
 
 const MAX_REVIEWS = 600;
-const MAX_TIME_MS = 45000;
+const MAX_TIME_MS = 67000;
 const MAX_PAGES = 40;
 
 (async () => {
