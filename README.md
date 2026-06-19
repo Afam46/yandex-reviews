@@ -4,8 +4,11 @@
 
 ## Demo
 
-Yandex Reviews Parser - http://155.212.147.12:8093/<br>
-Для просмотра Jobs - http://155.212.147.12:8093/horizon/
+Application:
+http://155.212.147.12:8093
+
+Laravel Horizon:
+http://155.212.147.12:8093/horizon
 
 Email:
 test@test.com<br>
@@ -39,8 +42,8 @@ Password:
 - сохранение организации в БД
 - удаление организации
 
-После завершения парсинга в Job запускается событие, которое транслируется через WebSocket
-Интерфейс обновляет статус организации до completed или failed без перезагрузки страницы
+После завершения парсинга Job генерирует событие OrganizationParsed<br>
+Событие транслируется через Laravel Reverb (WebSockets), после чего интерфейс обновляет статус организации без необходимости polling или перезагрузки страницы
 
 ## Работа с отзывами
 
@@ -80,9 +83,9 @@ Password:
 - избежать таймаутов
 - выполнять тяжёлый парсинг в фоне
 
-Для мониторинга очередей используется Laravel Horizon
-
-Queue + Redis + Supervisor + Horizon
+Очереди работают через Redis<br>
+Для мониторинга и управления очередями используется Laravel Horizon<br>
+В production окружении воркеры запускаются через Supervisor<br>
 
 ### БД
 
@@ -102,8 +105,10 @@ reviews
 - text
 - rating
 - review_date
-```
 
+Один пользователь может иметь множество организаций
+Одна организация содержит множество отзывов
+```
 ---
 
 # Подход к парсингу
@@ -169,6 +174,12 @@ Playwright был выбран по следующим причинам:
 
 При ошибке организация получает статус failed
 
+## Rate Limiting
+
+Для защиты от злоупотреблений используются ограничения на количество запросов к API
+
+Это предотвращает массовый запуск тяжёлого процесса парсинга и уменьшает нагрузку на сервер
+
 ---
 
 # Почему выбран именно такой подход
@@ -207,12 +218,13 @@ php artisan test
 # Запуск проекта
 
 ```
-## Требования
-
-- PHP 8.4+
-- Node.js 22+
-- MySQL
-- Redis
+## Требования:
+# PHP
+# Node.js
+# MySQL
+# Redis
+# Composer
+# npm
 
 git clone https://github.com/Afam46/yandex-reviews.git
 
@@ -225,18 +237,7 @@ cd yandex-reviews
 composer install
 
 cp .env.example .env
-
-# Настройка env
-DB_CONNECTION=mysql
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_DATABASE=yandex_reviews
-DB_USERNAME=root
-DB_PASSWORD=
-
-QUEUE_CONNECTION=redis
-CACHE_STORE=redis
-REDIS_CLIENT=predis
+# Настройте подключение к бд в env
 
 php artisan key:generate
 
@@ -260,17 +261,7 @@ npm run dev
 ```
 ## Убедитесь, что Redis запущен
 ```
-# Проверка
 redis-cli ping  # должен вернуть PONG
-
-# Если нет:
-
-# Установка (Ubuntu)
-sudo apt install redis-server
-
-# Запуск
-sudo systemctl start redis
-sudo systemctl enable redis
 
 ```
 ## Horizon
