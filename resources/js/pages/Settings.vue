@@ -312,6 +312,7 @@ import TransitionComponent from '../components/TransitionComponent.vue'
 
 const url = ref('')
 const urlError = ref('')
+let urlErrorTimer = ref(null)
 
 const organizations = ref([])
 const selectedOrganization = ref(null)
@@ -362,6 +363,15 @@ const loadReviews = async () => {
 }
 
 const saveOrganization = async () => {
+    
+    if (url.value.trim() === '') {
+        showUrlError('Вставьте ссылку!')
+        return
+    }
+    else if (!url.value.includes('yandex')) {
+        showUrlError('Ссылка должна вести на Яндекс карты!')
+        return
+    }
 
     try {
         const res = await axios.post('/api/organization',{url: url.value})
@@ -398,16 +408,19 @@ const saveOrganization = async () => {
             }
         }, 3000)
 
-    } catch (e) {
-        if (e.response?.status === 422){
-            urlError.value = e.response.data.errors.url?.[0] ?? 'Неверная ссылка'
-        }else{
-            urlError.value = 'Произошла ошибка при подключении организации'
+    } catch(e){
+
+        if (e.response?.status === 429) {
+            showUrlError('Слишком много запросов, попробуйте через минуту!')
+        }
+        else if (e.response?.status === 422) {
+            showUrlError(e.response.data.errors.url?.[0] ?? 'Неверная ссылка!')
+        }
+        else{
+            showUrlError('Произошла ошибка при подключении организации!')
         }
 
-        setTimeout(() => {
-                urlError.value = ''
-        }, 2000)
+        clearErr()
     }
 }
 
@@ -428,6 +441,20 @@ const deleteOrganization = async (id) => {
     }
 
     await loadOrganization()
+}
+
+const showUrlError = (message) => {
+    if (urlErrorTimer) {
+        clearTimeout(urlErrorTimer)
+        urlErrorTimer = null
+    }
+
+    urlError.value = message
+
+    urlErrorTimer = setTimeout(() => {
+        urlError.value = ''
+        urlErrorTimer = null
+    }, 3000)
 }
 
 onMounted(() => {
