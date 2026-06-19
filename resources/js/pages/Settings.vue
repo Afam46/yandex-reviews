@@ -389,34 +389,6 @@ const saveOrganization = async () => {
 
         reviews.value = []
         page.value = 1
-
-        const timer = setInterval(async () => {
-            await loadOrganization()
-
-            const parsingOrg = organizations.value.find(o => o.id === parsingOrganizationId)
-
-            if (!parsingOrg) {
-                clearInterval(timer)
-                return
-            }
-
-            if (parsingOrg.status === 'completed' || parsingOrg.status === 'failed') {
-                clearInterval(timer)
-
-                if (selectedOrganization.value?.id === parsingOrganizationId) {
-                    await loadReviews()
-
-                    if (parsingOrg.status === 'completed') {
-                        successText.value = 'Организация успешно загружена!'
-                        setTimeout(() => { successText.value = '' }, 3000)
-                    } else {
-                        showUrlError('Не удалось загрузить организацию!')
-                    }
-                }
-            }
-
-        }, 3000)
-
     } catch(e){
 
         if (e.response?.status === 429) {
@@ -428,8 +400,6 @@ const saveOrganization = async () => {
         else{
             showUrlError('Произошла ошибка при подключении организации!')
         }
-
-        clearErr()
     }
 }
 
@@ -468,5 +438,33 @@ const showUrlError = (message) => {
 
 onMounted(() => {
     loadOrganization()
+
+    window.Echo.private('organizations').listen('.organization.parsed', async (e) => {
+
+        await loadOrganization()
+
+        const org = organizations.value.find(o => o.id === e.organizationId)
+
+        if (!org) {
+            return
+        }
+
+        if (selectedOrganization.value?.id === e.organizationId) {
+            selectedOrganization.value = org
+        }
+
+        if (e.status === 'completed') {
+
+            page.value = 1
+
+            await loadReviews()
+
+            successText.value = 'Организация успешно загружена!'
+            setTimeout(() => { successText.value = '' }, 3000)
+        }
+        else if (e.status === 'failed') {
+            showUrlError('Не удалось загрузить организацию!')
+        }
+    })
 })
 </script>

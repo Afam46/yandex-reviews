@@ -11,6 +11,7 @@ use App\Services\YandexReviewParser;
 use Illuminate\Support\Carbon;
 use App\Models\Review;
 use Illuminate\Support\Facades\Cache;
+use App\Events\OrganizationParsed;
 
 class ParseOrganizationJob implements ShouldQueue
 {
@@ -30,6 +31,8 @@ class ParseOrganizationJob implements ShouldQueue
         $this->organization->update([
             'status' => 'parsing',
         ]);
+
+        broadcast(new OrganizationParsed($this->organization->id, 'parsing'));
         
         try {
             $parsed = $parser->parse($this->organization->url);
@@ -76,11 +79,15 @@ class ParseOrganizationJob implements ShouldQueue
                 'status' => 'completed'
             ]);
 
+            broadcast(new OrganizationParsed($this->organization->id, 'completed'));
+
         }catch(\Throwable) {
 
             $this->organization->update([
                 'status' => 'failed'
             ]);
+
+            broadcast(new OrganizationParsed($this->organization->id, 'failed'));
         }
        
     }
