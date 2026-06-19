@@ -4,8 +4,7 @@
 
 ## Demo
 
-[Yandex Reviews](http://155.212.147.12:8093/
-
+Yandex Reviews Parser - http://155.212.147.12:8093
 Для просмотра Jobs - http://155.212.147.12:8093/horizon/
 
 Email:
