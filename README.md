@@ -2,7 +2,6 @@
 
 Парсер отзывов с организаций Яндекс карт
 
-
 ## Demo
 
 [Yandex Reviews](http://155.212.147.12:8093/)
@@ -25,7 +24,7 @@ Password:
 | Категория | Технологии |
 |------------|------------|
 | Frontend | Vue 3, Vue Router, Axios, TailwindCSS, Pinia |
-| Backend | Laravel, Sanctum, MySQL, Redis, Queue, PHPUnit |
+| Backend | Laravel, Sanctum, MySQL, Redis, Queue, Horizon, PHPUnit |
 | Парсинг | Node.js, Playwright, Chromium Headless |
 
 ---
@@ -58,7 +57,7 @@ Password:
 - оценку
 - текст
 
-Отзывы хранятся в MySQL, а результаты пагинации кэшируются в Redis
+Отзывы сохраняются в MySQL, а результаты постраничной выдачи дополнительно кэшируются в Redis для ускорения повторных запросов
 
 ---
 
@@ -80,7 +79,9 @@ Password:
 - избежать таймаутов
 - выполнять тяжёлый парсинг в фоне
 
-Queue + Redis + Supervisor
+Для мониторинга очередей используется Laravel Horizon
+
+Queue + Redis + Supervisor + Horizon
 
 ### БД
 
@@ -271,10 +272,10 @@ sudo systemctl start redis
 sudo systemctl enable redis
 
 ```
-## Queue Worker
+## Horizon
 
 ```
-php artisan queue:work --timeout=180
+php artisan horizon
 
 ```
 
@@ -287,13 +288,19 @@ User
  ↓
 POST /organization
  ↓
+Organization(status=pending)
+ ↓
 ParseOrganizationJob
  ↓
-Playwright
+Redis Queue
+ ↓
+Laravel Horizon
+ ↓
+Playwright + Chromium
  ↓
 reviews table
  ↓
-status = completed
+Organization(status=completed)
  ↓
 Polling → UI update
 ```
