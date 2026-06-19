@@ -302,7 +302,7 @@
 
         </div>
     </div>
-    <TransitionComponent :errorText="urlError"/>
+    <TransitionComponent :errorText="urlError" :successText="successText"/>
 </template>
 
 <script setup>
@@ -313,6 +313,7 @@ import TransitionComponent from '../components/TransitionComponent.vue'
 const url = ref('')
 const urlError = ref('')
 let urlErrorTimer = ref(null)
+const successText = ref('')
 
 const organizations = ref([])
 const selectedOrganization = ref(null)
@@ -404,8 +405,16 @@ const saveOrganization = async () => {
 
                 if (selectedOrganization.value?.id === parsingOrganizationId) {
                     await loadReviews()
+
+                    if (parsingOrg.status === 'completed') {
+                        successText.value = 'Организация успешно загружена!'
+                        setTimeout(() => { successText.value = '' }, 3000)
+                    } else {
+                        showUrlError('Не удалось загрузить организацию!')
+                    }
                 }
             }
+
         }, 3000)
 
     } catch(e){
