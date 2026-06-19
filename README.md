@@ -23,7 +23,7 @@ Password:
 
 | Категория | Технологии |
 |------------|------------|
-| Frontend | Vue 3, Vue Router, Axios, TailwindCSS, Pinia |
+| Frontend | Vue 3, Vue Router, Axios, TailwindCSS, Pinia, WebSocket |
 | Backend | Laravel, Sanctum, MySQL, Redis, Queue, Horizon, PHPUnit |
 | Парсинг | Node.js, Playwright, Chromium Headless |
 
@@ -38,7 +38,7 @@ Password:
 - сохранение организации в БД
 - удаление организации
 
-После добавления организации запускается polling каждые 3 секунды.
+После завершения парсинга в Job запускается событие, которое транслируется через WebSocket
 Интерфейс обновляет статус организации до completed или failed без перезагрузки страницы
 
 ## Работа с отзывами
@@ -279,6 +279,12 @@ php artisan horizon
 
 ```
 
+## Reverb (WebSockets)
+
+```
+php artisan reverb:start
+
+```
 ---
 
 ## Диаграмма процесса
@@ -302,5 +308,5 @@ reviews table
  ↓
 Organization(status=completed)
  ↓
-Polling → UI update
+WebSocket → UI update
 ```
