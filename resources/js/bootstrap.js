@@ -4,9 +4,6 @@ axios.defaults.baseURL = import.meta.env.VITE_API_URL
 
 axios.defaults.headers.common.Accept = 'application/json'
 
-axios.defaults.withCredentials = true;
-axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
-
 axios.interceptors.request.use(config => {
     const token = localStorage.getItem('token')
 
